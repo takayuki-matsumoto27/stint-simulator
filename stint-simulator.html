@@ -1,0 +1,757 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:," />
+    <title>スティント逆算シミュレーター</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg: #f4f4f1;
+        --surface: #ffffff;
+        --surface-2: #ececea;
+        --ink: #1c1e20;
+        --ink-2: #4c5157;
+        --ink-3: #767c83;
+        --line: #d9d9d3;
+        --line-strong: #b9bbb2;
+        --accent: #c2271b;
+        --accent-ink: #a31f14;
+        --accent-soft: #fbeae8;
+        --ok: #1e7a46;
+        --warn-bg: #fdf3e0;
+        --warn-ink: #7a5410;
+        --chart-line: #c2271b;
+        --chart-grid: #e2e2dc;
+        --chart-pit: #8a8f96;
+        --radius: 10px;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #141518;
+          --surface: #1e2023;
+          --surface-2: #26282c;
+          --ink: #eceee9;
+          --ink-2: #b6bab9;
+          --ink-3: #8b9094;
+          --line: #33363b;
+          --line-strong: #4a4e55;
+          --accent: #e5533f;
+          --accent-ink: #ff8a76;
+          --accent-soft: #3a2320;
+          --ok: #4cc07c;
+          --warn-bg: #38301c;
+          --warn-ink: #e8c37a;
+          --chart-line: #e5533f;
+          --chart-grid: #2e3034;
+          --chart-pit: #6d7278;
+          color-scheme: dark;
+        }
+      }
+      * { box-sizing: border-box; }
+      html { -webkit-text-size-adjust: 100%; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+        font-size: 15px;
+        line-height: 1.6;
+      }
+      .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+
+      .wrap { max-width: 1080px; margin: 0 auto; padding: 20px 16px 48px; }
+
+      /* ---------- 見出し ---------- */
+      .page-head { border-bottom: 3px solid var(--ink); padding-bottom: 12px; margin-bottom: 6px; }
+      .page-head h1 { font-size: 24px; font-weight: 900; margin: 0; letter-spacing: .01em; }
+      .page-head p { margin: 6px 0 0; color: var(--ink-2); font-size: 13.5px; max-width: 46em; }
+
+      /* ---------- レイアウト ---------- */
+      .layout { display: grid; grid-template-columns: 340px 1fr; gap: 20px; align-items: start; margin-top: 18px; }
+      @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 18px;
+      }
+      .panel + .panel { margin-top: 16px; }
+      .panel h2 {
+        font-size: 13px; font-weight: 700; letter-spacing: .08em;
+        margin: 0 0 14px; padding-bottom: 8px;
+        border-bottom: 2px solid var(--ink);
+        display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+      }
+      .panel h2 .h2-note { font-size: 11.5px; font-weight: 400; letter-spacing: 0; color: var(--ink-3); }
+
+      /* ---------- 入力 ---------- */
+      .field { margin-bottom: 14px; }
+      .field:last-child { margin-bottom: 0; }
+      .field label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 5px; }
+      .field .hint { font-size: 11.5px; color: var(--ink-3); margin-top: 4px; }
+      .input-row { display: flex; align-items: stretch; gap: 0; }
+      .input-row input {
+        flex: 1; min-width: 0;
+        border: 1px solid var(--line-strong); border-right: none;
+        border-radius: 8px 0 0 8px;
+        background: var(--surface); color: var(--ink);
+        font-family: "IBM Plex Mono", ui-monospace, monospace;
+        font-size: 17px; font-weight: 600;
+        padding: 8px 12px; min-height: 44px;
+      }
+      .input-row .unit {
+        display: flex; align-items: center;
+        border: 1px solid var(--line-strong);
+        border-radius: 0 8px 8px 0;
+        background: var(--surface-2);
+        padding: 0 12px; font-size: 13px; font-weight: 700; color: var(--ink-2);
+        white-space: nowrap;
+      }
+      input:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      input.invalid { border-color: var(--accent); background: var(--accent-soft); }
+
+      .mode-toggle { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
+      .mode-toggle button {
+        appearance: none; border: none; background: var(--surface-2); color: var(--ink-2);
+        font-family: inherit; font-size: 13.5px; font-weight: 700;
+        padding: 10px 6px; min-height: 44px; cursor: pointer;
+      }
+      .mode-toggle button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+      .mode-toggle button + button { border-left: 1px solid var(--line-strong); }
+
+      .presets { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+      .presets span { font-size: 12px; color: var(--ink-3); align-self: center; margin-right: 2px; }
+      .preset-btn {
+        appearance: none; cursor: pointer;
+        border: 1px solid var(--line-strong); background: var(--surface);
+        color: var(--ink); font-family: inherit; font-size: 12.5px; font-weight: 700;
+        border-radius: 999px; padding: 8px 14px; min-height: 38px;
+      }
+      .preset-btn:active { background: var(--surface-2); }
+
+      .error-box {
+        display: none;
+        background: var(--accent-soft); color: var(--accent-ink);
+        border: 1px solid var(--accent);
+        border-radius: 8px; padding: 10px 12px; font-size: 13px; font-weight: 500;
+        margin-top: 14px;
+      }
+      .error-box.show { display: block; }
+
+      /* ---------- 結果サマリー ---------- */
+      .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+      @media (max-width: 640px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+      .stat {
+        border: 1px solid var(--line); border-radius: 8px;
+        padding: 12px 12px 10px; background: var(--surface);
+      }
+      .stat .s-label { font-size: 11.5px; font-weight: 700; color: var(--ink-2); letter-spacing: .04em; }
+      .stat .s-value { font-size: 27px; font-weight: 600; line-height: 1.25; margin-top: 2px; }
+      .stat .s-value small { font-size: 13px; font-weight: 500; color: var(--ink-2); margin-left: 2px; }
+      .stat .s-sub { font-size: 11.5px; color: var(--ink-3); margin-top: 1px; }
+      .stat.hero { border-color: var(--ink); border-width: 1.5px; }
+      .stat.hero .s-value { color: var(--accent-ink); }
+
+      /* ---------- ピット計画 ---------- */
+      .pit-list { list-style: none; margin: 0; padding: 0; }
+      .pit-list li {
+        display: flex; align-items: center; gap: 12px;
+        padding: 9px 2px; border-bottom: 1px solid var(--line);
+        font-size: 14px;
+      }
+      .pit-list li:last-child { border-bottom: none; }
+      .pit-badge {
+        flex: none; width: 52px; text-align: center;
+        background: var(--ink); color: var(--bg);
+        font-size: 11px; font-weight: 700; letter-spacing: .05em;
+        border-radius: 5px; padding: 4px 0;
+      }
+      .pit-list .p-main { font-weight: 700; }
+      .pit-list .p-main .mono { font-size: 16px; }
+      .pit-list .p-sub { color: var(--ink-3); font-size: 12px; margin-left: auto; text-align: right; }
+      .no-pit { font-size: 14px; color: var(--ink-2); padding: 4px 2px; }
+      .no-pit strong { color: var(--ok); }
+
+      /* ---------- グラフ ---------- */
+      .chart-box { width: 100%; }
+      .chart-box svg { display: block; width: 100%; height: auto; }
+      .chart-legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: var(--ink-2); margin-top: 8px; }
+      .chart-legend .lg { display: inline-flex; align-items: center; gap: 6px; }
+      .lg-line { width: 22px; height: 0; border-top: 2.5px solid var(--chart-line); }
+      .lg-pit { width: 0; height: 14px; border-left: 2px dashed var(--chart-pit); }
+
+      /* ---------- スティント表 ---------- */
+      .table-scroll { overflow-x: auto; }
+      table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+      th, td { padding: 8px 10px; text-align: right; white-space: nowrap; }
+      th:first-child, td:first-child { text-align: left; }
+      thead th { font-size: 11.5px; color: var(--ink-2); border-bottom: 2px solid var(--ink); font-weight: 700; }
+      tbody td { border-bottom: 1px solid var(--line); }
+      tbody tr:last-child td { border-bottom: none; }
+      tfoot td { border-top: 2px solid var(--ink); font-weight: 700; }
+      .stint-name { font-weight: 700; }
+      .pit-row td { background: var(--surface-2); color: var(--ink-2); font-size: 12.5px; text-align: left; }
+
+      details.lap-detail { border-top: 1px solid var(--line); margin-top: 10px; }
+      details.lap-detail summary {
+        cursor: pointer; font-size: 13px; font-weight: 700;
+        padding: 12px 2px; min-height: 44px; display: flex; align-items: center;
+        list-style: none;
+      }
+      details.lap-detail summary::-webkit-details-marker { display: none; }
+      details.lap-detail summary::before { content: "＋"; margin-right: 8px; color: var(--accent-ink); font-weight: 900; }
+      details.lap-detail[open ] summary::before { content: "－"; }
+      .lap-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; padding-bottom: 12px; }
+      .lap-cell {
+        border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px;
+        font-size: 12px; color: var(--ink-2);
+        display: flex; justify-content: space-between; gap: 6px;
+      }
+      .lap-cell .mono { color: var(--ink); font-weight: 600; font-size: 12.5px; }
+      .lap-cell.pit-in { border-color: var(--accent); background: var(--accent-soft); }
+
+      /* ---------- 注記・広告枠 ---------- */
+      .assumptions { font-size: 12.5px; color: var(--ink-2); }
+      .assumptions ul { margin: 6px 0 0; padding-left: 1.2em; }
+      .assumptions li { margin-bottom: 3px; }
+      .ad-slot {
+        margin-top: 20px;
+        border: 1.5px dashed var(--line-strong);
+        border-radius: var(--radius);
+        min-height: 110px;
+        display: flex; align-items: center; justify-content: center;
+        color: var(--ink-3); font-size: 12.5px; letter-spacing: .12em;
+        background: var(--surface);
+      }
+      .foot-note { margin-top: 22px; font-size: 12px; color: var(--ink-3); text-align: center; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="page-head">
+        <h1>スティント逆算シミュレーター</h1>
+        <p>燃料とタイヤ摩耗から、無給油で走れる周回数・ピットタイミング・総周回数を逆算する耐久レース向け計算ツールです。数値を変えると結果はその場で更新されます。</p>
+      </header>
+
+      <div class="layout">
+        <!-- ===== 入力 ===== -->
+        <div>
+          <section class="panel" aria-label="入力">
+            <h2>入力 <span class="h2-note">車両・レース条件</span></h2>
+
+            <div class="presets" role="group" aria-label="入力例">
+              <span>入力例：</span>
+              <button type="button" class="preset-btn" data-preset="roadster">小型スポーツカー（2.5時間）</button>
+              <button type="button" class="preset-btn" data-preset="kei">軽自動車（2時間）</button>
+              <button type="button" class="preset-btn" data-preset="touring">ツーリングカー（4時間）</button>
+            </div>
+
+            <div class="field">
+              <label for="in-tank">燃料タンク容量</label>
+              <div class="input-row">
+                <input id="in-tank" type="number" inputmode="decimal" min="0" step="0.5" value="40" />
+                <span class="unit">L</span>
+              </div>
+              <p class="hint">満タン時の容量。実際に使える量で入力してください。</p>
+            </div>
+
+            <div class="field">
+              <label for="in-cons">1周あたりの燃料消費</label>
+              <div class="input-row">
+                <input id="in-cons" type="number" inputmode="decimal" min="0" step="0.05" value="2.2" />
+                <span class="unit">L / 周</span>
+              </div>
+              <p class="hint">実走行の燃費データ（周回平均）を使います。</p>
+            </div>
+
+            <div class="field">
+              <label for="in-base">ベースラップタイム</label>
+              <div class="input-row">
+                <input id="in-base" type="number" inputmode="decimal" min="0" step="0.1" value="92.0" />
+                <span class="unit">秒</span>
+              </div>
+              <p class="hint">新品タイヤ・スティント1周目の想定タイム。<span id="base-fmt" class="mono"></span></p>
+            </div>
+
+            <div class="field">
+              <label for="in-wear">タイヤ摩耗による悪化</label>
+              <div class="input-row">
+                <input id="in-wear" type="number" inputmode="decimal" min="0" step="0.01" value="0.15" />
+                <span class="unit">秒 / 周</span>
+              </div>
+              <p class="hint">スティント内で1周ごとにラップタイムが落ちる量。ピットでタイヤ交換するとリセットされます。</p>
+            </div>
+
+            <div class="field">
+              <label for="in-pit">ピットストップ時間</label>
+              <div class="input-row">
+                <input id="in-pit" type="number" inputmode="decimal" min="0" step="5" value="90" />
+                <span class="unit">秒</span>
+              </div>
+              <p class="hint">ピットイン〜アウトのロスタイム（給油・タイヤ交換・ドライバー交代込み）。</p>
+            </div>
+
+            <div class="field">
+              <label id="mode-label">計算の基準</label>
+              <div class="mode-toggle" role="group" aria-labelledby="mode-label">
+                <button type="button" id="mode-time" aria-pressed="true">レース時間から</button>
+                <button type="button" id="mode-laps" aria-pressed="false">目標周回数から</button>
+              </div>
+            </div>
+
+            <div class="field" id="field-racetime">
+              <label for="in-racetime">レース時間</label>
+              <div class="input-row">
+                <input id="in-racetime" type="number" inputmode="numeric" min="0" step="5" value="150" />
+                <span class="unit">分</span>
+              </div>
+              <p class="hint">例：2時間30分耐久なら 150。</p>
+            </div>
+
+            <div class="field" id="field-targetlaps" hidden>
+              <label for="in-targetlaps">目標周回数</label>
+              <div class="input-row">
+                <input id="in-targetlaps" type="number" inputmode="numeric" min="0" step="1" value="80" />
+                <span class="unit">周</span>
+              </div>
+              <p class="hint">この周回数を走り切るのに必要なピット回数と所要時間を計算します。</p>
+            </div>
+
+            <div class="error-box" id="error-box" role="alert"></div>
+          </section>
+
+          <section class="panel assumptions" aria-label="計算の前提">
+            <h2>計算の前提</h2>
+            <ul>
+              <li>燃料は毎周一定量を消費し、タンク残量が1周分を切ったらピットインします。</li>
+              <li>ラップタイムはスティント内で1周ごとに一定量ずつ悪化し、タイヤ交換でベースに戻ります。</li>
+              <li>黄旗・赤旗・天候変化・他車とのバトルによるロスは含みません。実戦では余裕を持った計画を。</li>
+            </ul>
+          </section>
+        </div>
+
+        <!-- ===== 結果 ===== -->
+        <div>
+          <section aria-label="計算結果サマリー">
+            <div class="stats">
+              <div class="stat hero">
+                <div class="s-label">無給油で走れる周回数</div>
+                <div class="s-value mono"><span id="st-fuel-laps">–</span><small>周 / スティント</small></div>
+                <div class="s-sub" id="st-fuel-left">–</div>
+              </div>
+              <div class="stat">
+                <div class="s-label">推奨ピット回数</div>
+                <div class="s-value mono"><span id="st-pits">–</span><small>回</small></div>
+                <div class="s-sub" id="st-stints">–</div>
+              </div>
+              <div class="stat">
+                <div class="s-label" id="st-total-label">総周回数の見込み</div>
+                <div class="s-value mono"><span id="st-total">–</span><small id="st-total-unit">周</small></div>
+                <div class="s-sub" id="st-total-sub">–</div>
+              </div>
+              <div class="stat">
+                <div class="s-label">平均ラップタイム</div>
+                <div class="s-value mono" id="st-avg" style="font-size:22px; padding-top:5px;">–</div>
+                <div class="s-sub" id="st-avg-sub">ピット時間を含まない走行平均</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel" aria-label="ピット計画" style="margin-top:16px;">
+            <h2>ピット計画 <span class="h2-note">何周目で入るか</span></h2>
+            <div id="pit-plan"></div>
+          </section>
+
+          <section class="panel" aria-label="ラップタイム推移グラフ">
+            <h2>ラップタイム推移 <span class="h2-note">全周回</span></h2>
+            <div class="chart-box" id="chart-box"></div>
+            <div class="chart-legend">
+              <span class="lg"><span class="lg-line"></span>予測ラップタイム</span>
+              <span class="lg"><span class="lg-pit"></span>ピットイン</span>
+            </div>
+          </section>
+
+          <section class="panel" aria-label="スティント別予測">
+            <h2>スティント別予測 <span class="h2-note">1スティント = 給油から給油まで</span></h2>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>スティント</th>
+                    <th>周回</th>
+                    <th>区間（累計）</th>
+                    <th>1周目</th>
+                    <th>最終周</th>
+                    <th>平均</th>
+                    <th>スティント時間</th>
+                  </tr>
+                </thead>
+                <tbody id="stint-tbody"></tbody>
+                <tfoot id="stint-tfoot"></tfoot>
+              </table>
+            </div>
+            <div id="lap-details"></div>
+          </section>
+
+          <div class="ad-slot" aria-hidden="true">広告プレースホルダ</div>
+        </div>
+      </div>
+
+      <p class="foot-note">車の計算ツール集 ｜ スティント逆算シミュレーター（計算はすべてブラウザ内で行われます）</p>
+    </div>
+
+    <script>
+      (function () {
+        "use strict";
+
+        var PRESETS = {
+          roadster: { tank: 40, cons: 2.2, base: 92.0, wear: 0.15, pit: 90, mode: "time", racetime: 150, targetlaps: 80 },
+          kei:      { tank: 30, cons: 1.4, base: 78.5, wear: 0.10, pit: 75, mode: "time", racetime: 120, targetlaps: 80 },
+          touring:  { tank: 70, cons: 3.4, base: 105.0, wear: 0.20, pit: 120, mode: "time", racetime: 240, targetlaps: 120 }
+        };
+
+        var els = {
+          tank: document.getElementById("in-tank"),
+          cons: document.getElementById("in-cons"),
+          base: document.getElementById("in-base"),
+          wear: document.getElementById("in-wear"),
+          pit: document.getElementById("in-pit"),
+          racetime: document.getElementById("in-racetime"),
+          targetlaps: document.getElementById("in-targetlaps"),
+          fieldRacetime: document.getElementById("field-racetime"),
+          fieldTargetlaps: document.getElementById("field-targetlaps"),
+          modeTime: document.getElementById("mode-time"),
+          modeLaps: document.getElementById("mode-laps"),
+          error: document.getElementById("error-box"),
+          baseFmt: document.getElementById("base-fmt"),
+          fuelLaps: document.getElementById("st-fuel-laps"),
+          fuelLeft: document.getElementById("st-fuel-left"),
+          pits: document.getElementById("st-pits"),
+          stints: document.getElementById("st-stints"),
+          totalLabel: document.getElementById("st-total-label"),
+          total: document.getElementById("st-total"),
+          totalUnit: document.getElementById("st-total-unit"),
+          totalSub: document.getElementById("st-total-sub"),
+          avg: document.getElementById("st-avg"),
+          pitPlan: document.getElementById("pit-plan"),
+          chartBox: document.getElementById("chart-box"),
+          tbody: document.getElementById("stint-tbody"),
+          tfoot: document.getElementById("stint-tfoot"),
+          lapDetails: document.getElementById("lap-details")
+        };
+
+        var mode = "time";
+
+        function num(el) {
+          var v = parseFloat(el.value);
+          return isFinite(v) ? v : NaN;
+        }
+
+        /* 秒 → m:ss.t 表記 */
+        function fmtLap(sec) {
+          if (!isFinite(sec)) return "–";
+          var m = Math.floor(sec / 60);
+          var s = sec - m * 60;
+          var sStr = s.toFixed(1);
+          if (s < 10) sStr = "0" + sStr;
+          return m + ":" + sStr;
+        }
+        /* 秒 → h:mm:ss 表記 */
+        function fmtDuration(sec) {
+          sec = Math.round(sec);
+          var h = Math.floor(sec / 3600);
+          var m = Math.floor((sec % 3600) / 60);
+          var s = sec % 60;
+          function p(n) { return (n < 10 ? "0" : "") + n; }
+          if (h > 0) return h + ":" + p(m) + ":" + p(s);
+          return m + ":" + p(s);
+        }
+
+        function setMode(next) {
+          mode = next;
+          els.modeTime.setAttribute("aria-pressed", mode === "time" ? "true" : "false");
+          els.modeLaps.setAttribute("aria-pressed", mode === "laps" ? "true" : "false");
+          els.fieldRacetime.hidden = mode !== "time";
+          els.fieldTargetlaps.hidden = mode !== "laps";
+          calculate();
+        }
+
+        function validate(v) {
+          var errs = [];
+          function mark(el, bad) { el.classList.toggle("invalid", bad); }
+          var badTank = !(v.tank > 0);
+          var badCons = !(v.cons > 0);
+          var badBase = !(v.base > 0);
+          var badWear = !(v.wear >= 0);
+          var badPit = !(v.pit >= 0);
+          mark(els.tank, badTank); mark(els.cons, badCons); mark(els.base, badBase);
+          mark(els.wear, badWear); mark(els.pit, badPit);
+          if (badTank) errs.push("燃料タンク容量は0より大きい値を入力してください。");
+          if (badCons) errs.push("1周あたりの燃料消費は0より大きい値を入力してください。");
+          if (badBase) errs.push("ベースラップタイムは0より大きい値を入力してください。");
+          if (badWear) errs.push("タイヤ摩耗による悪化は0以上の値を入力してください。");
+          if (badPit) errs.push("ピットストップ時間は0以上の値を入力してください。");
+          if (!badTank && !badCons && v.cons > v.tank) {
+            errs.push("1周あたりの燃料消費がタンク容量を上回っています。この条件では1周も走れません。");
+          }
+          if (mode === "time") {
+            var badRt = !(v.racetime > 0);
+            mark(els.racetime, badRt);
+            if (badRt) errs.push("レース時間は0より大きい値を入力してください。");
+          } else {
+            var badTl = !(v.targetlaps >= 1) || Math.floor(v.targetlaps) !== v.targetlaps;
+            mark(els.targetlaps, badTl);
+            if (badTl) errs.push("目標周回数は1以上の整数を入力してください。");
+          }
+          return errs;
+        }
+
+        /*
+          シミュレーション本体。
+          スティント = 満タンから燃料が1周分を切るまで。
+          レース時間モード: 制限時間内に完了できる周回だけを数える。
+          目標周回数モード: 目標周回を走り切るまでスティントを繰り返す。
+        */
+        function simulate(v) {
+          var fuelLaps = Math.floor(v.tank / v.cons + 1e-9);
+          var leftover = Math.max(0, v.tank - fuelLaps * v.cons);
+          var limitSec = mode === "time" ? v.racetime * 60 : Infinity;
+          var target = mode === "laps" ? Math.floor(v.targetlaps) : Infinity;
+          var MAX_LAPS = 2000; // 描画負荷を抑える計算上限（通常の耐久レースでは到達しない）
+
+          var laps = [];        // {lap: 累計周, stint: 番号, lapInStint: 番号, time: 秒}
+          var stints = [];      // {index, laps, timeSum, firstTime, lastTime}
+          var elapsed = 0;      // ピット時間を含む経過秒
+          var runTime = 0;      // 走行のみの合計秒
+          var done = false;
+
+          while (!done) {
+            var sIdx = stints.length + 1;
+            var stint = { index: sIdx, laps: 0, timeSum: 0, firstTime: null, lastTime: null };
+            for (var i = 1; i <= fuelLaps; i++) {
+              if (laps.length >= target || laps.length >= MAX_LAPS) { done = true; break; }
+              var lt = v.base + v.wear * (i - 1);
+              if (elapsed + lt > limitSec) { done = true; break; }
+              elapsed += lt; runTime += lt;
+              laps.push({ lap: laps.length + 1, stint: sIdx, lapInStint: i, time: lt });
+              stint.laps++; stint.timeSum += lt;
+              if (stint.firstTime === null) stint.firstTime = lt;
+              stint.lastTime = lt;
+            }
+            if (stint.laps > 0) stints.push(stint);
+            if (done || laps.length >= target) break;
+            if (stint.laps < fuelLaps) break; // 時間切れで途中終了
+            // 次のスティントへ：ピット時間を加算
+            if (mode === "time" && elapsed + v.pit + v.base > limitSec) break;
+            elapsed += v.pit;
+            if (laps.length === 0) break;
+          }
+
+          var pitCount = Math.max(0, stints.length - 1);
+          // 目標周回数モードでは最終スティント後のピットは不要なので stints-1 がそのまま回数
+          return {
+            fuelLaps: fuelLaps,
+            leftover: leftover,
+            laps: laps,
+            stints: stints,
+            pitCount: pitCount,
+            elapsed: elapsed,
+            runTime: runTime,
+            totalLaps: laps.length,
+            avgLap: laps.length ? runTime / laps.length : NaN,
+            capped: laps.length >= MAX_LAPS && (mode === "laps" ? laps.length < target : elapsed < limitSec),
+            finished: mode === "laps" ? laps.length >= target : laps.length > 0
+          };
+        }
+
+        function renderChart(r, v) {
+          var W = 720, H = 240;
+          var padL = 46, padR = 10, padT = 12, padB = 30;
+          var iw = W - padL - padR, ih = H - padT - padB;
+          if (r.laps.length === 0) {
+            els.chartBox.innerHTML = '<p style="color:var(--ink-3);font-size:13px;margin:8px 0;">表示できる周回がありません。</p>';
+            return;
+          }
+          var minT = Infinity, maxT = -Infinity;
+          r.laps.forEach(function (l) { if (l.time < minT) minT = l.time; if (l.time > maxT) maxT = l.time; });
+          if (maxT - minT < 2) { maxT = minT + 2; }
+          var pad = (maxT - minT) * 0.12;
+          minT -= pad; maxT += pad;
+          var maxLap = r.laps.length;
+
+          function X(lap) { return padL + (maxLap <= 1 ? iw / 2 : (lap - 1) / (maxLap - 1) * iw); }
+          function Y(t) { return padT + (maxT - t) / (maxT - minT) * ih; }
+
+          var parts = [];
+          // 横グリッド + Y軸ラベル（4本）
+          for (var g = 0; g <= 3; g++) {
+            var tv = minT + (maxT - minT) * g / 3;
+            var y = Y(tv);
+            parts.push('<line x1="' + padL + '" y1="' + y.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + y.toFixed(1) + '" stroke="var(--chart-grid)" stroke-width="1"/>');
+            parts.push('<text x="' + (padL - 6) + '" y="' + (y + 4).toFixed(1) + '" text-anchor="end" font-size="10.5" fill="var(--ink-3)" font-family="IBM Plex Mono, monospace">' + fmtLap(tv) + '</text>');
+          }
+          // X軸ラベル
+          var step = Math.max(1, Math.ceil(maxLap / 6));
+          for (var lx = 1; lx <= maxLap; lx += step) {
+            parts.push('<text x="' + X(lx).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="10.5" fill="var(--ink-3)" font-family="IBM Plex Mono, monospace">' + lx + '</text>');
+          }
+          parts.push('<text x="' + (padL + iw / 2) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="10.5" fill="var(--ink-3)"></text>');
+          parts.push('<text x="' + (W - padR) + '" y="' + (H - 8) + '" text-anchor="end" font-size="10.5" fill="var(--ink-3)">周</text>');
+          // ピット位置（スティント境界）
+          r.stints.forEach(function (s, i) {
+            if (i === r.stints.length - 1) return;
+            var endLap = 0;
+            for (var k = 0; k <= i; k++) endLap += r.stints[k].laps;
+            var x = X(endLap) + (X(endLap + 1) - X(endLap)) / 2;
+            parts.push('<line x1="' + x.toFixed(1) + '" y1="' + padT + '" x2="' + x.toFixed(1) + '" y2="' + (padT + ih) + '" stroke="var(--chart-pit)" stroke-width="1.5" stroke-dasharray="4 3"/>');
+          });
+          // 折れ線
+          var pts = r.laps.map(function (l) { return X(l.lap).toFixed(1) + "," + Y(l.time).toFixed(1); }).join(" ");
+          parts.push('<polyline points="' + pts + '" fill="none" stroke="var(--chart-line)" stroke-width="2" stroke-linejoin="round"/>');
+          if (maxLap <= 60) {
+            r.laps.forEach(function (l) {
+              parts.push('<circle cx="' + X(l.lap).toFixed(1) + '" cy="' + Y(l.time).toFixed(1) + '" r="2.2" fill="var(--chart-line)"/>');
+            });
+          }
+          els.chartBox.innerHTML =
+            '<svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="全周回の予測ラップタイム推移グラフ">' + parts.join("") + "</svg>";
+        }
+
+        function render(r, v) {
+          els.fuelLaps.textContent = r.fuelLaps;
+          els.fuelLeft.textContent = "スティント終わりの残燃料 約" + r.leftover.toFixed(1) + " L";
+          els.pits.textContent = r.pitCount;
+          els.stints.textContent = "全" + r.stints.length + "スティント";
+
+          if (mode === "time") {
+            els.totalLabel.textContent = "総周回数の見込み";
+            els.total.textContent = r.totalLaps;
+            els.totalUnit.textContent = "周";
+            var remain = v.racetime * 60 - r.elapsed;
+            els.totalSub.textContent = r.totalLaps === 0
+              ? "制限時間内に1周も完了できません"
+              : "走行＋ピット " + fmtDuration(r.elapsed) + " / 残り " + fmtDuration(Math.max(0, remain)) + " は周回に使えません";
+          } else {
+            els.totalLabel.textContent = "総所要時間の見込み";
+            els.total.textContent = fmtDuration(r.elapsed);
+            els.totalUnit.textContent = "";
+            els.totalSub.textContent = "全" + r.totalLaps + "周（走行 " + fmtDuration(r.runTime) + " ＋ ピット " + fmtDuration(r.elapsed - r.runTime) + "）";
+          }
+          if (r.capped) {
+            els.totalSub.textContent += mode === "laps"
+              ? " ※計算上限2,000周までの表示です（目標 " + Math.floor(v.targetlaps) + " 周）"
+              : " ※計算上限2,000周に達したため打ち切っています";
+          }
+          els.avg.textContent = isFinite(r.avgLap) ? fmtLap(r.avgLap) : "–";
+
+          /* ピット計画 */
+          if (r.pitCount === 0) {
+            els.pitPlan.innerHTML = '<p class="no-pit"><strong>ピットストップ不要</strong> ― 燃料は最後まで持ちます。無給油で走り切る計画です。</p>';
+          } else {
+            var html = '<ul class="pit-list">';
+            var cum = 0;
+            r.stints.forEach(function (s, i) {
+              cum += s.laps;
+              if (i === r.stints.length - 1) return;
+              html += "<li>" +
+                '<span class="pit-badge">PIT ' + (i + 1) + "</span>" +
+                '<span class="p-main"><span class="mono">' + cum + '</span> 周目にピットイン</span>' +
+                '<span class="p-sub">スティント' + s.index + "： " + s.laps + "周走行後<br>ロス " + v.pit + "秒</span>" +
+                "</li>";
+            });
+            html += "</ul>";
+            els.pitPlan.innerHTML = html;
+          }
+
+          /* スティント表 */
+          var rows = "";
+          var cum2 = 0;
+          r.stints.forEach(function (s, i) {
+            var start = cum2 + 1;
+            cum2 += s.laps;
+            rows += "<tr>" +
+              '<td class="stint-name">スティント ' + s.index + "</td>" +
+              '<td class="mono">' + s.laps + " 周</td>" +
+              '<td class="mono">' + start + "–" + cum2 + " 周目</td>" +
+              '<td class="mono">' + fmtLap(s.firstTime) + "</td>" +
+              '<td class="mono">' + fmtLap(s.lastTime) + "</td>" +
+              '<td class="mono">' + fmtLap(s.timeSum / s.laps) + "</td>" +
+              '<td class="mono">' + fmtDuration(s.timeSum) + "</td>" +
+              "</tr>";
+            if (i < r.stints.length - 1) {
+              rows += '<tr class="pit-row"><td colspan="7">↓ ピットストップ（給油・タイヤ交換） ' + v.pit + "秒</td></tr>";
+            }
+          });
+          if (r.stints.length === 0) {
+            rows = '<tr><td colspan="7" style="text-align:left;color:var(--ink-3);">走行できる周回がありません。入力値を確認してください。</td></tr>';
+          }
+          els.tbody.innerHTML = rows;
+          els.tfoot.innerHTML = r.stints.length
+            ? "<tr><td>合計</td>" +
+              '<td class="mono">' + r.totalLaps + " 周</td><td></td><td></td><td></td>" +
+              '<td class="mono">' + (isFinite(r.avgLap) ? fmtLap(r.avgLap) : "–") + "</td>" +
+              '<td class="mono">' + fmtDuration(r.elapsed) + "</td></tr>"
+            : "";
+
+          /* 周回ごとの明細 */
+          if (r.laps.length === 0) {
+            els.lapDetails.innerHTML = "";
+          } else {
+            var cells = r.laps.map(function (l) {
+              var isPitIn = l.lapInStint === r.fuelLaps && l.lap < r.totalLaps;
+              return '<div class="lap-cell' + (isPitIn ? " pit-in" : "") + '"><span>' + l.lap + "周目" +
+                (isPitIn ? "（ピットイン）" : "") + '</span><span class="mono">' + fmtLap(l.time) + "</span></div>";
+            }).join("");
+            els.lapDetails.innerHTML =
+              '<details class="lap-detail"><summary>周回ごとの予測ラップタイム（全' + r.laps.length + '周）</summary>' +
+              '<div class="lap-grid">' + cells + "</div></details>";
+          }
+
+          renderChart(r, v);
+        }
+
+        function calculate() {
+          var v = {
+            tank: num(els.tank), cons: num(els.cons), base: num(els.base),
+            wear: num(els.wear), pit: num(els.pit),
+            racetime: num(els.racetime), targetlaps: num(els.targetlaps)
+          };
+          els.baseFmt.textContent = isFinite(v.base) && v.base > 0 ? "（" + fmtLap(v.base) + "）" : "";
+          var errs = validate(v);
+          if (errs.length) {
+            els.error.innerHTML = errs.join("<br>");
+            els.error.classList.add("show");
+            return;
+          }
+          els.error.classList.remove("show");
+          render(simulate(v), v);
+        }
+
+        [els.tank, els.cons, els.base, els.wear, els.pit, els.racetime, els.targetlaps]
+          .forEach(function (el) { el.addEventListener("input", calculate); });
+        els.modeTime.addEventListener("click", function () { setMode("time"); });
+        els.modeLaps.addEventListener("click", function () { setMode("laps"); });
+
+        document.querySelectorAll(".preset-btn").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var p = PRESETS[btn.getAttribute("data-preset")];
+            if (!p) return;
+            els.tank.value = p.tank; els.cons.value = p.cons; els.base.value = p.base;
+            els.wear.value = p.wear; els.pit.value = p.pit;
+            els.racetime.value = p.racetime; els.targetlaps.value = p.targetlaps;
+            setMode(p.mode);
+          });
+        });
+
+        calculate();
+      })();
+    </script>
+  </body>
+</html>
